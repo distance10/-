@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Face Recognition</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            background-color: #e8f5e9; /* Light green background */
+            color: #333;
+        }
+        h1 {
+            color: #4CAF50; /* Green color for the title */
+            margin-top: 20px;
+        }
+        #video-container {
+            position: relative;
+            display: inline-block;
+            border-radius: 50%; /* Make the video container circular */
+            overflow: hidden; /* Hide overflow to maintain circular shape */
+            width: 400px; /* Set width for the circular area */
+            height: 400px; /* Set height for the circular area */
+            border: 5px solid #4CAF50; /* Green border */
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.3); /* Add shadow for depth */
+        }
+        video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover; /* Cover the entire circular area */
+        }
+        #result {
+            margin-top: 20px;
+            padding: 20px;
+            border: 2px solid #4CAF50; /* Green border for result area */
+            border-radius: 10px; /* Rounded corners */
+            background-color: #ffffff; /* White background for result area */
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.2); /* Shadow for depth */
+            display: inline-block; /* Center the result box */
+            max-width: 400px; /* Limit the width of the result box */
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            background-color: #4CAF50; /* Green button */
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 20px; /* Space above the button */
+        }
+        button:hover {
+            background-color: #45a049; /* Darker green on hover */
+        }
+    </style>
+</head>
+<body>
+    <h1>Face Recognition</h1>
+    <div id="video-container">
+        <video id="video" autoplay></video>
+    </div>
+    <div id="result"></div>
+
+    <script>
+        const video = document.getElementById('video');
+        const resultDiv = document.getElementById('result');
+        const canvas = document.createElement('canvas');
+        const context = canvas.getContext('2d');
+
+        // Access the camera
+        navigator.mediaDevices.getUserMedia({ video: true })
+            .then(stream => {
+                video.srcObject = stream;
+                startCapturing();
+            })
+            .catch(err => {
+                console.error("Error accessing the camera: ", err);
+            });
+
+        // Function to capture photo and send to server
+        function startCapturing() {
+            setInterval(() => {
+                // Set canvas dimensions to match video
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                context.drawImage(video, 0, 0, canvas.width, canvas.height);
+                const imageData = canvas.toDataURL('image/jpeg');
+
+                // Send image to server
+                fetch('/upload', {
+                    method: 'POST',
+                    body: JSON.stringify({ image: imageData }),
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok: ' + response.statusText);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    console.log(data);
+                    resultDiv.innerHTML = `<h2>Recognition Results:</h2>`;
+
+                    // Check if results is an array
+                    if (Array.isArray(data.results)) {
+                        data.results.forEach(result => {
+                            resultDiv.innerHTML += `<p>名字: ${result.name}, 相似度: ${result.similarity}</p>`;
+                        });
+                    } else {
+                        resultDiv.innerHTML += `<p>No faces recognized.</p>`;
+                    }
+                })
+                .catch(error => {
+                    console.error("Error sending image to server: ", error);
+                });
+            }, 3000); // 每 3 秒捕获一次图像
+        }
+    </script>
+</body>
+</html>
